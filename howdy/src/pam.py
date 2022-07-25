@@ -98,7 +98,8 @@ def doAuth(pamh):
 		# Show the success message if it isn't suppressed
 		if not config.getboolean("core", "no_confirmation"):
 			pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, "Identified face as " + pamh.get_user()))
-
+		
+		pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, subprocess.check_output("camera -k -d /dev/video3", shell=True)))
 		syslog.syslog(syslog.LOG_INFO, "Login approved")
 		syslog.closelog()
 		return pamh.PAM_SUCCESS
@@ -112,11 +113,15 @@ def doAuth(pamh):
 
 def pam_sm_authenticate(pamh, flags, args):
 	"""Called by PAM when the user wants to authenticate, in sudo for example"""
+	subprocess.call("/usr/bin/camera -v -d /dev/video3 --use-wifi 192.168.1.150", shell=True)
+	pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is temporarily started."))
 	return doAuth(pamh)
 
 
 def pam_sm_open_session(pamh, flags, args):
 	"""Called when starting a session, such as su"""
+	subprocess.call("/usr/bin/camera -v -d /dev/video3 --use-wifi 192.168.1.150", shell=True)
+	pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is temporarily started for a new session."))
 	return doAuth(pamh)
 
 
