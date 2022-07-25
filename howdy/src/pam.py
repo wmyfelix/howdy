@@ -16,27 +16,34 @@ config.read(os.path.dirname(os.path.abspath(__file__)) + "/config.ini")
 
 def doAuth(pamh):
 	"""Starts authentication in a separate process"""
-
+	#pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, "Howdy is Starting 0."))
 	# Abort if Howdy is disabled
 	if config.getboolean("core", "disabled"):
+		pamh.conversation(pamh.Message(pamh.PAM_ERROR_MSG, "Howdy is disabled."))
+		cameraSwitch(pamh, "off")
 		return pamh.PAM_AUTHINFO_UNAVAIL
-
+	#pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, "Howdy is Starting 1."))
 	# Abort if we're in a remote SSH env
-	if config.getboolean("core", "ignore_ssh"):
+	if config.getboolean("core", "abort_if_ssh"):
 		if "SSH_CONNECTION" in os.environ or "SSH_CLIENT" in os.environ or "SSHD_OPTS" in os.environ:
+			pamh.conversation(pamh.Message(pamh.PAM_ERROR_MSG, "Howdy is disabled in ssh."))
+			cameraSwitch(pamh, "off")	
 			return pamh.PAM_AUTHINFO_UNAVAIL
-
+	#pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, "Howdy is Starting 2."))
 	# Abort if lid is closed
-	if config.getboolean("core", "ignore_closed_lid"):
+	if config.getboolean("core", "abort_if_lid_closed"):
 		if any("closed" in open(f).read() for f in glob.glob("/proc/acpi/button/lid/*/state")):
+			pamh.conversation(pamh.Message(pamh.PAM_ERROR_MSG, "LID is closed."))
+			cameraSwitch(pamh, "off")
 			return pamh.PAM_AUTHINFO_UNAVAIL
-
+	#pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, "Howdy is Starting 3."))
 	# Abort if the video device does not exist
 	if not os.path.exists(config.get("video", "device_path")):
 		if config.getboolean("video", "warn_no_device"):
-			print("Camera path is not configured correctly, please edit the 'device_path' config value.")
+			pamh.conversation(pamh.Message(pamh.PAM_ERROR_MSG, "Camera path is not configured correctly, please edit the 'device_path' config value."))
+		cameraSwitch(pamh, "off")
 		return pamh.PAM_AUTHINFO_UNAVAIL
-
+	#pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, "Howdy is Starting 4."))
 	# Set up syslog
 	syslog.openlog("[HOWDY]", 0, syslog.LOG_AUTH)
 
@@ -116,14 +123,14 @@ def doAuth(pamh):
 def pam_sm_authenticate(pamh, flags, args):
 	"""Called by PAM when the user wants to authenticate, in sudo for example"""
 	cameraSwitch(pamh, "on")
-	pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is temporarily started."))
+	#pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is temporarily started."))
 	return doAuth(pamh)
 
 
 def pam_sm_open_session(pamh, flags, args):
 	"""Called when starting a session, such as su"""
 	cameraSwitch(pamh, "on")
-	pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is temporarily started for a new session."))
+	#pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is temporarily started for a new session."))
 	return doAuth(pamh)
 
 
@@ -140,11 +147,11 @@ def cameraSwitch(pamh, arg):
     try:
         if arg == "on": 
             pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is Switching on."))
-            subprocess.call("/usr/bin/camera -v -d /dev/video3 --use-wifi 192.168.1.150", shell=True)
+            subprocess.check_output("/usr/bin/camera -v -d /dev/video3 --use-wifi 192.168.1.150", shell=True)
         
         if arg == "off": 
             pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is Switching off."))
-            subprocess.call("camera -k -d /dev/video3", shell=True)
+            subprocess.check_output("camera -k -d /dev/video3", shell=True)
     
     except subprocess.CalledProcessError: 
         pamh.conversation(pamh.Message(pamh.PAM_ERROR_MSG, "Failure, camera switch {} fail.".format(arg)))
