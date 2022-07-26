@@ -56,8 +56,13 @@ def doAuth(pamh):
 	# Run compare as python3 subprocess to circumvent python version and import issues
 	status = subprocess.call(["/usr/bin/python3", os.path.dirname(os.path.abspath(__file__)) + "/compare.py", pamh.get_user()])
 	
-	if status != 0: cameraSwitch(pamh, "off")
-	
+	i=0
+	while i<=5 and status != 0:
+		#pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, "Retrying..."))
+		status = subprocess.call(["/usr/bin/python3", os.path.dirname(os.path.abspath(__file__)) + "/compare.py", pamh.get_user()])
+		i+=1
+		if i == 5 and status != 0: cameraSwitch(pamh, "off")
+
 	# Status 10 means we couldn't find any face models
 	if status == 10:
 		if not config.getboolean("core", "suppress_unknown"):
@@ -123,14 +128,14 @@ def doAuth(pamh):
 def pam_sm_authenticate(pamh, flags, args):
 	"""Called by PAM when the user wants to authenticate, in sudo for example"""
 	cameraSwitch(pamh, "on")
-	#pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is temporarily started."))
+	pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is temporarily started."))
 	return doAuth(pamh)
 
 
 def pam_sm_open_session(pamh, flags, args):
 	"""Called when starting a session, such as su"""
 	cameraSwitch(pamh, "on")
-	#pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is temporarily started for a new session."))
+	pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is temporarily started for a new session."))
 	return doAuth(pamh)
 
 
@@ -144,15 +149,13 @@ def pam_sm_setcred(pamh, flags, argv):
 	return pamh.PAM_SUCCESS
 
 def cameraSwitch(pamh, arg):
-    try:
-        if arg == "on": 
-            pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is Switching on."))
-            subprocess.check_output("/usr/bin/camera -v -d /dev/video3 --use-wifi 192.168.1.150", shell=True)
-        
-        if arg == "off": 
-            pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is Switching off."))
-            subprocess.check_output("camera -k -d /dev/video3", shell=True)
-    
-    except subprocess.CalledProcessError: 
-        pamh.conversation(pamh.Message(pamh.PAM_ERROR_MSG, "Failure, camera switch {} fail.".format(arg)))
-        return pamh.PAM_SYSTEM_ERR
+	try:
+		if arg == "on": 
+			pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, "Camera is Switching on."))
+			pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, subprocess.check_output("/usr/bin/camera -v -d /dev/video3 --use-wifi 192.168.1.150", shell=True, stderr=subprocess.STDOUT)))
+		if arg == "off": 
+			pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, "Camera is Switching off."))
+			pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, subprocess.check_output("camera -k -d /dev/video3", shell=True, stderr=subprocess.STDOUT)))
+	except subprocess.CalledProcessError: 
+		pamh.conversation(pamh.Message(pamh.PAM_ERROR_MSG, "Failure, camera switch {} fail.".format(arg)))
+		return pamh.PAM_SYSTEM_ERR
