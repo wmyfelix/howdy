@@ -4,6 +4,7 @@
 import subprocess
 import os
 import glob
+from sys import stdout
 import syslog
 
 # pam-python is running python 2, so we use the old module here
@@ -128,14 +129,13 @@ def doAuth(pamh):
 def pam_sm_authenticate(pamh, flags, args):
 	"""Called by PAM when the user wants to authenticate, in sudo for example"""
 	cameraSwitch(pamh, "on")
-	pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is temporarily started."))
+	
 	return doAuth(pamh)
 
 
 def pam_sm_open_session(pamh, flags, args):
 	"""Called when starting a session, such as su"""
 	cameraSwitch(pamh, "on")
-	pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is temporarily started for a new session."))
 	return doAuth(pamh)
 
 
@@ -151,11 +151,13 @@ def pam_sm_setcred(pamh, flags, argv):
 def cameraSwitch(pamh, arg):
 	try:
 		if arg == "on": 
-			pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, "Camera is Switching on."))
-			pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, subprocess.check_output("/usr/bin/camera -v -d /dev/video3 --use-wifi 192.168.1.150", shell=True, stderr=subprocess.STDOUT)))
+			subprocess.check_output("camera -v -d /dev/video3 --use-wifi 192.168.1.150 > /dev/null", env=dict(os.environ,PATH='/usr/bin'), shell=True)
+			#pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is temporarily started."))
 		if arg == "off": 
-			pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, "Camera is Switching off."))
-			pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, subprocess.check_output("camera -k -d /dev/video3", shell=True, stderr=subprocess.STDOUT)))
-	except subprocess.CalledProcessError: 
-		pamh.conversation(pamh.Message(pamh.PAM_ERROR_MSG, "Failure, camera switch {} fail.".format(arg)))
+			#pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, "Camera is Switching off."))
+			subprocess.check_output("camera -k -d /dev/video3", env=dict(os.environ,PATH='/usr/bin'), shell=True)
+	except subprocess.CalledProcessError as err: 
+		pamh.conversation(pamh.Message(pamh.PAM_ERROR_MSG, "Failure, camera switch {0} fail. {1}".format(arg, err.output)))
+		if arg == "on":
+			subprocess.check_output("camera -k -d /dev/video3 > /dev/null", env=dict(os.environ,PATH='/usr/bin'), shell=True)
 		return pamh.PAM_SYSTEM_ERR
