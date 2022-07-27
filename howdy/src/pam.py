@@ -4,7 +4,6 @@
 import subprocess
 import os
 import glob
-from sys import stdout
 import syslog
 
 # pam-python is running python 2, so we use the old module here
@@ -151,7 +150,7 @@ def pam_sm_setcred(pamh, flags, argv):
 def cameraSwitch(pamh, arg):
 	try:
 		if arg == "on": 
-			subprocess.check_output("camera -v -d /dev/video3 --use-wifi 192.168.1.150 > /dev/null", env=dict(os.environ,PATH='/usr/bin'), shell=True)
+			subprocess.check_output("camera -v -d /dev/video3 --use-wifi 192.168.1.150", env=dict(os.environ,PATH='/usr/bin'), shell=True)
 			#pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO,"Camera is temporarily started."))
 		if arg == "off": 
 			#pamh.conversation(pamh.Message(pamh.PAM_TEXT_INFO, "Camera is Switching off."))
@@ -159,5 +158,5 @@ def cameraSwitch(pamh, arg):
 	except subprocess.CalledProcessError as err: 
 		pamh.conversation(pamh.Message(pamh.PAM_ERROR_MSG, "Failure, camera switch {0} fail. {1}".format(arg, err.output)))
 		if arg == "on":
-			subprocess.check_output("camera -k -d /dev/video3 > /dev/null", env=dict(os.environ,PATH='/usr/bin'), shell=True)
+			subprocess.check_output("camera -k -d /dev/video3", env=dict(os.environ,PATH='/usr/bin'), shell=True)
 		return pamh.PAM_SYSTEM_ERR
